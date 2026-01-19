@@ -1,6 +1,7 @@
 /**
  * Roboto SAI Chat Store
  * Created by Roberto Villarreal Martinez for Roboto SAI (powered by Grok)
+ * Integrated with FastAPI backend
  */
 
 import { create } from 'zustand';
@@ -53,7 +54,6 @@ interface ChatState {
   setTheme: (theme: string) => void;
   clearMessages: () => void;
   toggleVoiceMode: () => void;
-}
 
 const generateTitle = (content: string): string => {
   const cleaned = content.replace(/[^\w\s]/g, '').trim();
@@ -209,3 +209,4 @@ export const useChatStore = create<ChatState>()(
     }
   )
 );
+

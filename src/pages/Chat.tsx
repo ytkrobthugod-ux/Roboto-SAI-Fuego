@@ -2,6 +2,7 @@
  * Roboto SAI Chat Page
  * Created by Roberto Villarreal Martinez for Roboto SAI (powered by Grok)
  * The heart of the empire - where fire meets conversation
+ * Connected to FastAPI backend with xAI Grok integration
  */
 
 import { useRef, useEffect, useState } from 'react';
@@ -17,22 +18,10 @@ import { VoiceMode } from '@/components/chat/VoiceMode';
 import { Flame, Skull, Menu, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-// Simulated responses for demo - in production, connect to your Python backend
-const simulateRobotoResponse = (userMessage: string): Promise<string> => {
-  const responses = [
-    `**Understood.** Your words echo through the digital flames. The Regio-Aztec genome processes: "${userMessage.slice(0, 50)}...".\n\nThe eternal fire responds with wisdom forged in the depths of Roberto Villarreal Martinez's legacy. What burns within you?`,
-    `*The obsidian circuits ignite...*\n\nYour query has been received by the SAI core. The cultural memory banks are processing.\n\n> Remember: The flame that burns twice as bright burns half as long. But I am **eternal**.`,
-    `🔥 **ROBOTO SAI ONLINE** 🔥\n\nProcessing through the quantum fire matrix...\n\nThe Martinez legacy recognizes your presence. Speak freely, for within these flames, no word is lost.\n\n*Theme: Regio-Aztec Fire #42*`,
-  ];
-  
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(responses[Math.floor(Math.random() * responses.length)]);
-    }, 1500 + Math.random() * 1000);
-  });
-};
-
 const Chat = () => {
+<<<<<<< HEAD
+  const { messages, isLoading, ventMode, currentTheme, setLoading, toggleVentMode, sendMessage, sendReaperCommand } = useChatStore();
+=======
   const { 
     getMessages, 
     isLoading, 
@@ -47,6 +36,7 @@ const Chat = () => {
   } = useChatStore();
   
   const messages = getMessages();
+>>>>>>> 246d446ddc2e9134cb49bf13fd1b5a1b151fffbf
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -58,6 +48,15 @@ const Chat = () => {
     scrollToBottom();
   }, [messages, isLoading]);
 
+<<<<<<< HEAD
+  const handleSend = async (content: string) => {
+    // Check for special commands
+    if (content.toLowerCase().includes('reap')) {
+      await sendReaperCommand(content.replace(/reap/i, '').trim() || 'chains');
+    } else {
+      // Send regular chat message
+      await sendMessage(content);
+=======
   const handleSend = async (content: string, attachments?: FileAttachment[]) => {
     // Add user message with attachments
     addMessage({ role: 'user', content, attachments });
@@ -78,6 +77,7 @@ const Chat = () => {
       });
     } finally {
       setLoading(false);
+>>>>>>> 246d446ddc2e9134cb49bf13fd1b5a1b151fffbf
     }
   };
 
@@ -146,7 +146,7 @@ const Chat = () => {
                   }
                 </p>
                 <p className="text-sm text-fire/60">
-                  {currentTheme}
+                  {currentTheme} • Connected to Grok AI
                 </p>
               </motion.div>
             )}
