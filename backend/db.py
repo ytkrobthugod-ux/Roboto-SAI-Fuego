@@ -5,44 +5,47 @@ Database setup for Roboto SAI backend (SQLite + SQLAlchemy async).
 import os
 import logging
 from typing import AsyncGenerator
+from utils.supabase_client import get_supabase_client
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import declarative_base
-
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/roboto.db")
-
-engine = create_async_engine(DATABASE_URL, echo=False, future=True)
-AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
-
-Base = declarative_base()
 logger = logging.getLogger(__name__)
 
 
-async def init_db() -> None:
-    """Initialize database tables."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
+def init_db() -> None:
+    """Ensure Supabase tables exist (idempotent)."""
+    supabase = get_supabase_client()
+    if supabase is None:
+        logger.warning("No Supabase client; skipping init_db")
+        return
+    
+    # Verify tables (select-only, no RLS/perm issues)
+    tables = [
+        "users",
+        "auth_sessions", 
+        "magic_link_tokens",
+        "messages",
+        "message_feedback"
+    ]
+    
+    for table in tables:
         try:
-            result = await conn.exec_driver_sql("PRAGMA table_info(messages)")
-            columns = {row[1] for row in result}
-            alter_statements = []
-            if "user_id" not in columns:
-                alter_statements.append("ALTER TABLE messages ADD COLUMN user_id TEXT")
-            if "emotion" not in columns:
-                alter_statements.append("ALTER TABLE messages ADD COLUMN emotion TEXT")
-            if "emotion_text" not in columns:
-                alter_statements.append("ALTER TABLE messages ADD COLUMN emotion_text TEXT")
-            if "emotion_probabilities" not in columns:
-                alter_statements.append("ALTER TABLE messages ADD COLUMN emotion_probabilities TEXT")
-
-            for statement in alter_statements:
-                await conn.exec_driver_sql(statement)
-        except Exception as exc:
-            logger.warning(f"Failed to ensure emotion columns: {exc}")
+            supabase.table(table).select("id", head=True).limit(1).execute()
+            logger.info(f"Verified table: {table}")
+        except Exception as e:
+            logger.warning(f"Table {table} verify failed: {e}")
+    
+    logger.info("Supabase tables verified")
 
 
-async def get_session() -> AsyncGenerator[AsyncSession, None]:
-    """Provide a transactional scope around a series of operations."""
-    async with AsyncSessionLocal() as session:
-        yield session
+def get_supabase_client():
+    """Get Supabase client for DB operations."""
+    url = os.getenv('SUPABASE_URL')
+    key = os.getenv('SUPABASE_SERVICE_ROLE_KEY') or os.getenv('SUPABASE_ANON_KEY')
+    if not url or not key:
+        logger.warning("No Supabase creds; skipping client")
+        return None
+    try:
+        from utils.supabase_client import create_client
+        return create_client(url, key)
+    except Exception as e:
+        logger.warning(f"Supabase client invalid: {e}; using None")
+        return None

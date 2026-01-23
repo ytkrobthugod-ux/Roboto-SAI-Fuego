@@ -33,8 +33,11 @@ interface AuthState {
   provider: string | null;
   isLoggedIn: boolean;
 
-  // Legacy demo login (kept so the current landing page continues to work)
-  login: (username: string, email?: string | null) => void;
+  // Client-side demo
+  loginDemo: (username: string, email?: string | null) => void;
+  loginWithPassword: (email: string, password: string) => Promise<void>;
+  register: (email: string, password: string) => Promise<void>;
+  startGoogleSignIn: () => void;
 
   // Real backend session auth
   refreshSession: () => Promise<boolean>;
@@ -53,8 +56,8 @@ export const useAuthStore = create<AuthState>()(
       provider: null,
       isLoggedIn: false,
 
-      login: (username: string, email?: string | null) => {
-        const userId = username.toLowerCase().replace(/\s+/g, '_').slice(0, 64);
+      loginDemo: (username: string, email?: string | null) => {
+        const userId = username.toLowerCase().replaceAll(/\s+/g, '_').slice(0, 64);
         set({ userId, username, email: email || null, isLoggedIn: true, provider: 'demo' });
       },
 
@@ -88,9 +91,39 @@ export const useAuthStore = create<AuthState>()(
       },
 
       startGoogleSignIn: () => {
+        const rawBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || 'http://localhost:5000';
+        const base = rawBase.replace(/\/+$/, '').endsWith('/api') ? rawBase.replace(/\/+$/, '').slice(0, -4) : rawBase.replace(/\/+$/, '');
+        globalThis.location.href = `${base}/api/auth/google`;
+      },
+
+      register: async (email: string, password: string) => {
         const apiBaseUrl = getApiBaseUrl();
-        const url = apiBaseUrl ? `${apiBaseUrl}/api/auth/google/start` : '/api/auth/google/start';
-        window.location.href = url;
+        const url = apiBaseUrl ? `${apiBaseUrl}/api/auth/register` : '/api/auth/register';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(txt || 'Registration failed');
+        }
+      },
+
+      loginWithPassword: async (email: string, password: string) => {
+        const apiBaseUrl = getApiBaseUrl();
+        const url = apiBaseUrl ? `${apiBaseUrl}/api/auth/login` : '/api/auth/login';
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => '');
+          throw new Error(txt || 'Login failed');
+        }
       },
 
       requestMagicLink: async (email: string) => {

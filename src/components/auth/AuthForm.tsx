@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthStore } from '@/stores/authStore';
+import { useNavigate } from 'react-router-dom';
 
 interface AuthFormProps {
   onSubmit: (data: { username: string; email: string; password: string }) => void;
@@ -21,9 +22,23 @@ interface AuthFormProps {
 
 export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login' }: AuthFormProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { startGoogleSignIn, requestMagicLink } = useAuthStore();
 
-  const [authMode, setAuthMode] = useState<'magic' | 'demo'>('magic');
+  const googleEnabled = import.meta.env.VITE_GOOGLE_OAUTH_ENABLED === 'true';
+  const handleGoogleSignIn = () => {
+    if (!googleEnabled) {
+      toast({
+        title: 'Google sign-in not available yet',
+        description: 'This environment has no /api/auth/google endpoint configured.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    startGoogleSignIn();
+  };
+
+  const [authMode, setAuthMode] = useState<'password' | 'magic' | 'demo'>('password');
   const [mode, setMode] = useState<'login' | 'register'>(initialMode);
   const [username, setUsername] = useState(defaultUsername);
   const [email, setEmail] = useState('');
@@ -36,9 +51,10 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
     const newErrors: Record<string, string> = {};
 
     if (mode === 'register') {
-      if (!username.trim()) {
+      const cleanUsername = username.trim();
+      if (authMode !== 'demo' && !cleanUsername) {
         newErrors.username = 'Username is required';
-      } else if (username.length < 3) {
+      } else if (cleanUsername && cleanUsername.length < 3) {
         newErrors.username = 'Username must be at least 3 characters';
       }
     }
@@ -50,7 +66,7 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
     }
 
     // Demo auth is client-only; keep it frictionless.
-    if (authMode !== 'demo') {
+    if (authMode === 'password') {
       if (!password) {
         newErrors.password = 'Password is required';
       } else if (password.length < 6) {
@@ -68,6 +84,17 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (authMode === 'demo') {
+      const cleanEmail = email.trim();
+      const demoUsername = username.trim() || (cleanEmail ? cleanEmail.split('@')[0] : 'demo');
+      useAuthStore.getState().loginDemo(demoUsername, cleanEmail || null);
+      toast({
+        title: 'Welcome to the eternal flame, demo mode! 😈',
+        description: 'You are signed in locally (no backend session).',
+      });
+      navigate('/chat');
+      return;
+    }
     if (validateForm()) {
       onSubmit({ username: username.trim(), email: email.trim(), password });
     }
@@ -77,6 +104,13 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
     setMode(mode === 'login' ? 'register' : 'login');
     setErrors({});
   };
+
+  let submitLabel = '';
+  if (authMode === 'demo') {
+    submitLabel = mode === 'login' ? 'Enter Demo' : 'Start Demo';
+  } else {
+    submitLabel = mode === 'login' ? 'Sign In' : 'Create Account';
+  }
 
   return (
     <Card className="w-full max-w-md bg-card/80 backdrop-blur-md border-fire/30 shadow-2xl">
@@ -101,13 +135,26 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
       <CardContent>
         <div className="space-y-4">
           {/* Google */}
-          <Button type="button" className="w-full btn-ember" onClick={startGoogleSignIn}>
+          <Button type="button" className="w-full btn-ember" onClick={handleGoogleSignIn} disabled={!googleEnabled}>
             Continue with Google
             <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
 
           {/* Mode switch */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            <Button
+              type="button"
+              variant={authMode === 'password' ? 'default' : 'secondary'}
+              className="w-full"
+              onClick={() => {
+                setAuthMode('password');
+                setErrors({});
+                setPassword('');
+                setConfirmPassword('');
+              }}
+            >
+              Password
+            </Button>
             <Button
               type="button"
               variant={authMode === 'magic' ? 'default' : 'secondary'}
@@ -115,9 +162,11 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
               onClick={() => {
                 setAuthMode('magic');
                 setErrors({});
+                setPassword('');
+                setConfirmPassword('');
               }}
             >
-              Magic link
+              Magic
             </Button>
             <Button
               type="button"
@@ -126,6 +175,8 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
               onClick={() => {
                 setAuthMode('demo');
                 setErrors({});
+                setPassword('');
+                setConfirmPassword('');
               }}
             >
               Demo login
@@ -181,6 +232,10 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
               <Button type="submit" className="w-full">
                 Send magic link
               </Button>
+
+              <p className="text-xs text-muted-foreground text-center">
+                Magic links work for both sign-in and sign-up.
+              </p>
             </form>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -315,13 +370,23 @@ export const AuthForm = ({ onSubmit, defaultUsername = '', initialMode = 'login'
           </AnimatePresence>
 
           {/* Submit Button */}
-          <Button
-            type="submit"
-            className="w-full btn-ember group"
-          >
-            {mode === 'login' ? 'Sign In' : 'Create Account'}
-            <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
-          </Button>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={`${mode}-${authMode}`}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+            >
+              <Button
+                type="submit"
+                className="w-full btn-ember group"
+              >
+                {submitLabel}
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </motion.div>
+          </AnimatePresence>
 
           {/* Toggle Mode */}
           <div className="text-center pt-2">
