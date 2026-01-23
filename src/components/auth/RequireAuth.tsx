@@ -3,11 +3,15 @@
  * Redirects to /login if not authenticated
  */
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
 
-export const RequireAuth = () => {
+interface RequireAuthProps {
+  children?: ReactNode;
+}
+
+export const RequireAuth = ({ children }: RequireAuthProps) => {
   const { isLoggedIn } = useAuthStore();
   const navigate = useNavigate();
 
@@ -17,5 +21,8 @@ export const RequireAuth = () => {
     }
   }, [isLoggedIn, navigate]);
 
-  return isLoggedIn ? <Outlet /> : null;
+  if (!isLoggedIn) return null;
+  
+  // Support both direct children (for testing) and Outlet (for nested routes)
+  return children ? <>{children}</> : <Outlet />;
 };
