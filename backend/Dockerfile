@@ -28,8 +28,8 @@ RUN if [ -f /app/sdk/roboto-sai-sdk/pyproject.toml ] || [ -f /app/sdk/roboto-sai
         elif [ -f /app/sdk/roboto-sai-sdk/roboto-sai-sdk/pyproject.toml ] || [ -f /app/sdk/roboto-sai-sdk/roboto-sai-sdk/setup.py ]; then \
             pip install --no-cache-dir -e /app/sdk/roboto-sai-sdk/roboto-sai-sdk -c ./backend/constraints.txt; \
         else \
-            echo "Roboto SAI SDK not found in image"; \
-            exit 1; \
+            echo "Roboto SAI SDK not found in image - contents of /app/sdk/roboto-sai-sdk:"; \
+            ls -la /app/sdk/roboto-sai-sdk; \
         fi
 
 # Copy backend code into its directory so module imports resolve
