@@ -921,7 +921,11 @@ async def trigger_hyperspeed_evolution(target: str = "general") -> Dict[str, Any
         logger.error(f"Hyperspeed evolution error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# Root endpoint
+@app.get("/health", tags=["Health"])
+async def simple_health_check() -> Dict[str, str]:
+    """Simple health check for Render deployment compatibility"""
+    return {"status": "healthy", "service": "roboto-sai-2026", "timestamp": datetime.now().isoformat()}
+
 @app.get("/", tags=["Root"])
 async def root() -> Dict[str, str]:
     """Root endpoint with API info"""
@@ -929,7 +933,8 @@ async def root() -> Dict[str, str]:
         "service": "Roboto SAI 2026 Backend",
         "version": "0.1.0",
         "docs": "/docs",
-        "status": "/api/status"
+        "status": "/api/status",
+        "health": "/health"
     }
 
 # Exception handler for detailed error responses
