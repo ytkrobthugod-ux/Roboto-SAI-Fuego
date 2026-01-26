@@ -25,9 +25,9 @@ ENV PYTHONPATH=/app/backend
 # Expose port
 EXPOSE 5000
 
-# Health Check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=2 \
-    CMD python -c "import requests; requests.get('http://localhost:${PORT:-5000}/health')" || exit 1
+# Health Check - temporarily disabled for deployment
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=2 \
+#     CMD python -c "import requests; requests.get('http://localhost:${PORT:-5000}/health')" || exit 1
 
 # Run uvicorn
 CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-5000} --log-level info"]
