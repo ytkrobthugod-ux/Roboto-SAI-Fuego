@@ -8,14 +8,14 @@ services:
     pythonVersion: 3.11
     plan: starter
     branch: main
+    rootDir: backend
     buildCommand: |
+      git submodule update --init --recursive
       python -m pip install --upgrade pip
-      pip install --no-cache-dir -r backend/requirements.txt
+      pip install --no-cache-dir -r requirements.txt
       # If SDK is provided as an editable package in-repo, install it (no-op if not present)
-      pip install --no-cache-dir -e sdk/roboto-sai-sdk || true
+      pip install --no-cache-dir -e ../sdk/roboto-sai-sdk || true
     startCommand: |
-      mkdir -p /var/data
-      cd backend
       uvicorn main:app --host 0.0.0.0 --port $PORT
     disk:
       name: data
