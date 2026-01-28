@@ -1,13 +1,16 @@
 {
   "ExpandedNodes": [
     "",
-    "\\backend",
-    "\\src",
-    "\\src\\components",
-    "\\src\\components\\chat",
-    "\\src\\config",
-    "\\src\\hooks",
-    "\\src\\stores"
+    "\\.github",
+    "\\.github\\agents",
+    "\\.github\\prompts",
+    "\\.github\\workflows",
+    "\\.SAI_Agents",
+    "\\node_modules",
+    "\\node_modules\\.vite",
+    "\\node_modules\\.vite\\vitest",
+    "\\node_modules\\.vite\\vitest\\da39a3ee5e6b4b0d3255bfef95601890afd80709"
   ],
+  "SelectedNode": "\\backend\\main.py",
   "PreviewInSolutionExplorer": false
 }

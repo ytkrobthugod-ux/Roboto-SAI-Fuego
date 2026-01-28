@@ -52,6 +52,11 @@ AI-Memory/*
 .env.backup
 .env.local
 .env.*.local
+# Virtual environments
+.venv/
+venv/
+venv*/
+venv_linux/
 
 # Roboto AI API keys
 .Roboto
