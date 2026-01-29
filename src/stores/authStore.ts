@@ -89,16 +89,8 @@ export const useAuthStore = create<AuthState>()(
 
       refreshSession: async () => {
         if (!supabase) {
-          // Demo mode
-          set({
-            userId: 'demo-user',
-            username: 'Demo',
-            email: 'demo@example.com',
-            avatarUrl: null,
-            provider: 'demo',
-            isLoggedIn: true,
-          });
-          return true;
+          set({ userId: null, username: null, email: null, avatarUrl: null, provider: null, isLoggedIn: false });
+          return false;
         }
         const { data, error } = await supabase.auth.getSession();
         if (error || !data.session) {
@@ -111,7 +103,7 @@ export const useAuthStore = create<AuthState>()(
           username: user.user_metadata?.display_name || user.email?.split('@')[0] || null,
           email: user.email || null,
           avatarUrl: user.user_metadata?.avatar_url || null,
-          provider: user.app_metadata?.provider || null,
+          provider: user.app_metadata?.provider || 'supabase',
           isLoggedIn: true,
         });
         return true;
@@ -119,16 +111,7 @@ export const useAuthStore = create<AuthState>()(
 
       register: async (email: string, password: string) => {
         if (!supabase) {
-          // Demo mode, just set
-          set({
-            userId: 'demo-user',
-            username: email.split('@')[0],
-            email,
-            avatarUrl: null,
-            provider: 'demo',
-            isLoggedIn: true,
-          });
-          return;
+          throw new Error('Authentication service not configured. Please contact support.');
         }
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
@@ -136,23 +119,16 @@ export const useAuthStore = create<AuthState>()(
 
       loginWithPassword: async (email: string, password: string) => {
         if (!supabase) {
-          // Demo mode
-          set({
-            userId: 'demo-user',
-            username: email.split('@')[0],
-            email,
-            avatarUrl: null,
-            provider: 'demo',
-            isLoggedIn: true,
-          });
-          return;
+          throw new Error('Authentication service not configured. Please contact support.');
         }
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       },
 
       requestMagicLink: async (email: string) => {
-        if (!supabase) throw new Error('Supabase not configured');
+        if (!supabase) {
+          throw new Error('Authentication service not configured. Please contact support.');
+        }
         const { error } = await supabase.auth.signInWithOtp({ email });
         if (error) throw error;
       },

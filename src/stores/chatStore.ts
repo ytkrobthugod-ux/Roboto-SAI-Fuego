@@ -55,7 +55,7 @@ interface ChatState {
   createNewConversation: () => string;
   selectConversation: (id: string) => void;
   deleteConversation: (id: string) => void;
-  addMessage: (message: Omit<Message, 'timestamp'>) => string;
+  addMessage: (message: Omit<Message, 'timestamp' | 'id'> & { id?: string }) => string;
   setLoading: (loading: boolean) => void;
   toggleVentMode: () => void;
   setTheme: (theme: string) => void;

@@ -8,6 +8,7 @@
 import { useRef, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChatStore, FileAttachment } from '@/stores/chatStore';
+import { useMemoryStore } from '@/stores/memoryStore';
 import { ChatMessage } from '@/components/chat/ChatMessage';
 import { ChatInput } from '@/components/chat/ChatInput';
 import { TypingIndicator } from '@/components/chat/TypingIndicator';
@@ -19,7 +20,6 @@ import { Flame, Skull, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/stores/authStore';
-import { useToast } from '@/components/ui/use-toast';
 
 type ChatApiResponse = {
   response?: string;
@@ -42,7 +42,6 @@ const getApiBaseUrl = (): string => {
 
 const Chat = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { userId, isLoggedIn, refreshSession } = useAuthStore();
   const { 
     getMessages, 
@@ -58,6 +57,8 @@ const Chat = () => {
     loadUserHistory,
     userId: storeUserId
   } = useChatStore();
+  
+  const { buildContextForAI, addMemory, addConversationSummary, trackEntity, isReady: memoryReady } = useMemoryStore();
   
   const messages = getMessages();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,11 +103,39 @@ const Chat = () => {
     }
   }, [isLoggedIn, userId, storeUserId, loadUserHistory]);
 
+  // Extract and store important information from conversations
+  const extractMemories = async (userMessage: string, assistantResponse: string, sessionId: string) => {
+    // Extract potential entities (simple pattern matching - can be enhanced)
+    const namePattern = /(?:my (?:name is|friend|brother|sister|mom|dad|wife|husband|partner|boss|colleague) (?:is )?|I'm |I am )([A-Z][a-z]+)/gi;
+    let match;
+    while ((match = namePattern.exec(userMessage)) !== null) {
+      const entityName = match[1];
+      const entityType = userMessage.toLowerCase().includes('name is') ? 'self' : 'person';
+      await trackEntity(entityName, entityType, userMessage);
+    }
+
+    // Detect preferences (simple heuristics)
+    const preferencePatterns = [
+      { pattern: /I (?:really )?(?:love|like|prefer|enjoy) (.+?)(?:\.|,|!|$)/i, type: 'likes' },
+      { pattern: /I (?:hate|dislike|don't like|can't stand) (.+?)(?:\.|,|!|$)/i, type: 'dislikes' },
+      { pattern: /I'm (?:a|an) (.+?)(?:\.|,|!|$)/i, type: 'identity' },
+    ];
+
+    for (const { pattern, type } of preferencePatterns) {
+      const prefMatch = userMessage.match(pattern);
+      if (prefMatch) {
+        await addMemory(
+          `User ${type}: ${prefMatch[1]}`,
+          'preferences',
+          1.2,
+          { source: sessionId, extractedFrom: userMessage }
+        );
+      }
+    }
+  };
+
   const handleSend = async (content: string, attachments?: FileAttachment[]) => {
-    console.log('[Chat] handleSend called', { content, isLoggedIn, userId });
-    
     if (!isLoggedIn || !userId) {
-      console.warn('[Chat] Not logged in, redirecting to /login');
       navigate('/login');
       return;
     }
@@ -114,42 +143,27 @@ const Chat = () => {
     setLoading(true);
 
     try {
-      // Add user message with attachments
       const conversationId = addMessage({ role: 'user', content, attachments });
-      console.log('[Chat] User message added', { conversationId });
-
-      let context = '';
       const sessionId = conversationId;
-      let chatUrl = '/api/chat';
       
-      // Get context from all conversations for better responses
-      try {
-        console.log('[Chat] About to call getAllConversationsContext');
-        context = getAllConversationsContext();
-        console.log('[Chat] Context retrieved, length:', context.length);
-        
-        try {
-          console.log('[Chat] About to call getApiBaseUrl');
-          const apiBaseUrl = getApiBaseUrl();
-          console.log('[Chat] API URL determined:', apiBaseUrl);
-          chatUrl = apiBaseUrl ? `${apiBaseUrl}/api/chat` : '/api/chat';
-          console.log('[Chat] API URL resolved', { apiBaseUrl, chatUrl });
-          console.log('[Chat] Context confirmed');
-        } catch (e) {
-          console.error('[Chat] Error in URL resolution:', e);
-          throw e;
-        }
-      } catch (e) {
-        console.error('[Chat] Error in context retrieval:', e);
-        throw e;
-      }
+      // Build context from both conversation history and memory system
+      const conversationContext = getAllConversationsContext();
+      const memoryContext = memoryReady ? buildContextForAI(content) : '';
+      
+      // Combine contexts intelligently
+      const combinedContext = memoryContext 
+        ? `${memoryContext}\n\n## Recent Conversation\n${conversationContext}`
+        : conversationContext;
+
+      const apiBaseUrl = getApiBaseUrl();
+      const chatUrl = apiBaseUrl ? `${apiBaseUrl}/api/chat` : '/api/chat';
       
       const payload = {
         message: content,
-        context,
+        context: combinedContext,
         session_id: sessionId,
+        user_id: userId,
       };
-      console.log('[Chat] Request payload', payload);
       
       const response = await fetch(chatUrl, {
         method: 'POST',
@@ -157,23 +171,26 @@ const Chat = () => {
         credentials: 'include',
         body: JSON.stringify(payload),
       });
-      console.log('[Chat] Response received', { status: response.status, ok: response.ok });
       
       const data = (await response.json()) as ChatApiResponse;
-      console.log('[Chat] Response data', data);
       
       if (!response.ok) {
         const errorMessage = data.detail || data.error || `Request failed (${response.status})`;
-        console.error('[Chat] API error', { status: response.status, errorMessage, data });
         throw new Error(errorMessage);
       }
       
-      console.log('[Chat] Adding assistant message', { response: data.response || data.content });
+      const assistantContent = data.response || data.content || 'Flame response received.';
+      
       addMessage({ 
         role: 'assistant', 
-        content: data.response || data.content || 'Flame response received.',
+        content: assistantContent,
         id: data.assistant_message_id || undefined,
       });
+
+      // Extract and store memories from this exchange
+      if (memoryReady) {
+        await extractMemories(content, assistantContent, sessionId);
+      }
     } catch (error) {
       console.error('[Chat] handleSend error', error);
       addMessage({
